@@ -5,14 +5,19 @@
 #define ENC_A 8
 #define ENC_B 9
 
-#define ENC_DIR 1
+#define ENC_DIR -1
 
 #define ENC_PORT PINB
 #define ENC_MASK 0b00110000
 #define ENC_SHIFT 4
 
+#define ENC_TICK_PER_REV 12
+#define GEAR_RATIO 100
+#define TICK_TO_RAD (TWO_PI / (ENC_TICK_PER_REV * GEAR_RATIO))
+
 volatile int16_t counter = 0;
 int8_t ett[4][4] = {0};
+volatile float enc_phi_rad = 0;
 
 void encoderInit()
 {
@@ -52,4 +57,14 @@ ISR(PCINT0_vect)
 
     counter += ett[enc_zn1][enc];
     enc_zn1 = enc;
+}
+
+void encoderTick()
+{
+    noInterrupts();
+    int16_t counter_buff = counter;
+    counter = 0;
+    interrupts();
+
+    enc_phi_rad += counter_buff * TICK_TO_RAD;
 }

@@ -1,21 +1,18 @@
 #include <Arduino.h>
 
-#define encA 8
-#define encB 9
+#include "Encoder.h"
 
 void setup()
 {
   Serial.begin(115200);
 
-  pinMode(encA, INPUT);
-  pinMode(encB, INPUT);
+  encoderInit();
 }
 
 void loop()
 {
-  int enca = digitalRead(encA);
-  int encb = digitalRead(encB);
+  encoderTick();
 
-  Serial.print(enca);
-  Serial.println(encb);
+  Serial.print(enc_phi_rad);
+  Serial.println();
 }
