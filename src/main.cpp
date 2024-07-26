@@ -2,6 +2,7 @@
 
 #include "Encoder.h"
 #include "Motor.h"
+#include "ImuDriver.h"
 
 #define Ts_us 5000               // Период квантования в [мкс]
 #define Ts_s (Ts_us / 1000000.0) // Период квантования в [с]
@@ -12,6 +13,7 @@ void setup()
 
   encoderInit();
   motorInit();
+  mpuInit();
 }
 
 void loop()
@@ -19,14 +21,16 @@ void loop()
   ///////// TIMER /////////
   // Задание постоянной частоты главного цикла прогааммы
   static uint32_t timer = micros();
+  const uint32_t dtime = micros() - timer;
   while (micros() - timer < Ts_us)
     ;
-  const uint32_t dtime = micros() - timer;
   timer = micros();
 
   ///////// SENSE /////////
   // Считывание датчиков
   encoderTick();
+  mpuTick();
+
   const float phi_rad = enc_phi_rad;
   const float w0_rad_s = 4;
 
@@ -59,12 +63,18 @@ void loop()
 
   ///////// ACT /////////
   // Приведение управляющих воздействий в действие и логирование данных
-  motorTick(u_V, 0);
+  motorTick(0, 0);
 
-  Serial.print(dtime);
+  // Serial.print(dtime);
+  // Serial.print(" ");
+  // Serial.print(w0_rad_s);
+  // Serial.print(" ");
+  // Serial.print(w_est_rad_s);
+  // Serial.print(" ");
+  // Serial.print(gyro_z_raw_popugi);
   Serial.print(" ");
-  Serial.print(w0_rad_s);
-  Serial.print(" ");
-  Serial.print(w_est_rad_s);
+  Serial.print(gyro_z_rad_s);
+  // Serial.print(" ");
+  // Serial.print(gyro_z_angle_rad);
   Serial.println();
 }
