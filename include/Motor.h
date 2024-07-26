@@ -14,10 +14,10 @@
 
 void motorInit()
 {
-    pinMode(M1, INPUT);
-    pinMode(E1, INPUT);
-    pinMode(M2, INPUT);
-    pinMode(E2, INPUT);
+    pinMode(M1, OUTPUT);
+    pinMode(E1, OUTPUT);
+    pinMode(M2, OUTPUT);
+    pinMode(E2, OUTPUT);
 }
 
 void motorPWM(int pinM, int pinE, int pwm)
