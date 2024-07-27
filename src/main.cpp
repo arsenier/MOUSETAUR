@@ -19,11 +19,25 @@ void setup()
     mpuInit();
 }
 
+float thetai_smooth_search(float time, float v_f0 = 0.1)
+{
+    const float l_forw = 0;
+
+    const float time_mod = fmodf(time, 1.51);
+
+    if (time_mod >= 0.225 && time_mod < 1.285)
+    {
+        return 1.48;
+    }
+    return 0;
+}
+
 void loop()
 {
     ///////// TIMER /////////
     // Задание постоянной частоты главного цикла прогааммы
     static uint32_t timer = micros();
+    // 4500us
     const uint32_t dtime = micros() - timer;
     while (micros() - timer < Ts_us)
         ;
@@ -31,8 +45,8 @@ void loop()
 
     ///////// SENSE /////////
     // Считывание датчиков
-    encoderTick();
-    mpuTick();
+    encoderTick(); // 16us
+    mpuTick();     // 1500us
 
     const float phi_L = G_phi_L;     // [rad]
     const float theta_i = G_theta_i; // [rad/s]
@@ -44,9 +58,13 @@ void loop()
     static Integrator theta(Ts_s);
     theta.tick(theta_i);
 
-    //// Задание поступательной и угловой скоростей ////
-    const float v_f0 = 0.1;   // [m/s]
-    const float theta_i0 = 0; // [rad/s]
+    //// Задатчик поступательной и угловой скоростей (профиля движения) ////
+
+    const float v_f0 = 0.1; // [m/s]
+
+    static float time0 = millis() / 1000.0;
+    const float time_current = millis() / 1000.0 - time0;
+    const float theta_i0 = thetai_smooth_search(time_current); // [rad/s]
 
     //// Трансформатор поступательной скорости ////
     const float w_f0 = v_f0 / WHEEL_RADIUS; // [rad/s]
@@ -88,9 +106,11 @@ void loop()
 
     const float u_R = pi_Rw.out;
 
+    // 2200us
     ///////// ACT /////////
     // Приведение управляющих воздействий в действие и логирование данных
     motorTick(u_L, u_R);
+    // 2250us
 
     Serial.print(dtime);
     Serial.print(" ");
