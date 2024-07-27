@@ -1,18 +1,18 @@
 #pragma once
 
-#include <Arduino.h>
 #include "I2Cdev.h"
 #include "MPU6050.h"
+#include <Arduino.h>
 
 MPU6050 mpu;
 #define BUFFER_SIZE 100
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
-#define POPUGI_TO_RAD_S (250.0 / 32768 * DEG_TO_RAD)
+#define POPUGI_TO_RAD_S (250.0 / 32768 * DEG_TO_RAD) // [rad/s/popugi]
 
-int16_t gyro_z_raw_popugi = 0;
-float gyro_z_rad_s = 0;
+int16_t gyro_z_raw_popugi = 0; // [popugi]
+float G_theta_i = 0;           // [rad/s]
 
 // ======= ФУНКЦИЯ КАЛИБРОВКИ =======
 void calibration()
@@ -68,6 +68,9 @@ void calibration()
     }
 }
 
+/**
+ * Инициализация драйвера гироскопа
+ */
 void mpuInit()
 {
     Wire.begin();
@@ -82,10 +85,13 @@ void mpuInit()
     calibration();
 }
 
+/**
+ * Обновление значения угловой скорости робота
+ */
 void mpuTick()
 {
     mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
     gyro_z_raw_popugi = gx;
 
-    gyro_z_rad_s = gyro_z_raw_popugi * POPUGI_TO_RAD_S;
+    G_theta_i = gyro_z_raw_popugi * POPUGI_TO_RAD_S;
 }

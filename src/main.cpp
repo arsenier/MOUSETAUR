@@ -1,115 +1,109 @@
 #include <Arduino.h>
 
-#include "Encoder.h"
-#include "Motor.h"
+#include "EncoderDriver.h"
 #include "ImuDriver.h"
-#include "Tau.h"
+#include "MotorDriver.h"
 #include "Parameters.h"
+#include "Tau.h"
 
 #define Ts_us 5000               // Период квантования в [мкс]
 #define Ts_s (Ts_us / 1000000.0) // Период квантования в [с]
 
 void setup()
 {
-  Serial.begin(115200);
+    Serial.begin(115200);
 
-  encoderInit();
-  motorInit();
-  mpuInit();
+    // Инициализация драйверов периферийных устройств
+    encoderInit();
+    motorInit();
+    mpuInit();
 }
 
 void loop()
 {
-  ///////// TIMER /////////
-  // Задание постоянной частоты главного цикла прогааммы
-  static uint32_t timer = micros();
-  const uint32_t dtime = micros() - timer;
-  while (micros() - timer < Ts_us)
-    ;
-  timer = micros();
+    ///////// TIMER /////////
+    // Задание постоянной частоты главного цикла прогааммы
+    static uint32_t timer = micros();
+    const uint32_t dtime = micros() - timer;
+    while (micros() - timer < Ts_us)
+        ;
+    timer = micros();
 
-  ///////// SENSE /////////
-  // Считывание датчиков
-  encoderTick();
-  mpuTick();
+    ///////// SENSE /////////
+    // Считывание датчиков
+    encoderTick();
+    mpuTick();
 
-  const float phi_rad = enc_phi_rad;
+    const float phi_L = G_phi_L;     // [rad]
+    const float theta_i = G_theta_i; // [rad/s]
 
-  ///////// PLAN /////////
-  // Расчет управляющих воздействий
+    ///////// PLAN /////////
+    // Расчет управляющих воздействий
 
-  //// Задание поступательной скорости
-  const float v_f0 = 0.2; // [м/с]
-  const float w_f0 = v_f0 / WHEEL_RADIUS_M;
+    //// Вычислитель угла поворота робота ////
+    static Integrator theta(Ts_s);
+    theta.tick(theta_i);
 
-  //// Задание угловой скорости
-  const float thetai_0 = 0;
+    //// Задание поступательной и угловой скоростей ////
+    const float v_f0 = 0.1;   // [m/s]
+    const float theta_i0 = 0; // [rad/s]
 
-  const float err_thetai = thetai_0 - phi_rad;
+    //// Трансформатор поступательной скорости ////
+    const float w_f0 = v_f0 / WHEEL_RADIUS; // [rad/s]
 
-  static PIController pi_thetai(Ts_s, 1, 10, 20);
-  pi_thetai.tick(err_thetai);
-  const float dw = 0;
+    //// Трансформатор угловой скорости ////
+    const float w_Delta = theta_i0 * ROBOT_WIDTH / WHEEL_RADIUS; // [rad/s]
 
-  //// Микшер
-  const float w_l0 = w_f0 - dw / 2;
-  const float w_r0 = w_f0 + dw / 2;
+    //// Микшер ////
+    const float w_L0 = w_f0 - w_Delta / 2; // [rad/s]
+    const float w_R0 = w_f0 + w_Delta / 2; // [rad/s]
 
-  //// Замкнутое управление ДПТ (левым) ////
+    //// Система управления скоростью мотора c ОС по энкодеру (левым) ////
+    const float Tf = 2 * Ts_s;            // [s]
+    static VelEstimator w_Lest(Ts_s, Tf); // [rad/s]
+    w_Lest.tick(phi_L);
 
-  const float T_f_s = 2 * Ts_s;
+    // ПИ регулятор скорости
+    const float err_wL = w_L0 - w_Lest.out; // [rad/s]
 
-  static VelEstimator w_est_rad_s(Ts_s, T_f_s);
+    const float K = 0.3;
+    const float T = 0.2;
+    const float Kp = K;
+    const float Ki = K / T;
 
-  w_est_rad_s.tick(phi_rad);
+    static PIController pi_Lw(Ts_s, Kp, Ki, SUPPLY_VOLTAGE); // [V]
 
-  // ПИ регулятор скорости
-  const float err_w_rad_s = w_l0 - w_est_rad_s.out;
+    pi_Lw.tick(err_wL);
 
-  const float K = 1;
-  const float T = 0.2;
-  const float Kp = K;
-  const float Ki = K / T;
+    const float u_L = pi_Lw.out; // [V]
 
-  static PIController pi_w_V(Ts_s, Kp, Ki, SUPPLY_VOLTAGE);
+    //// Вычислитель скорости мотора без энкодера (правый) ////
+    const float w_Rest = w_Lest.out + G_theta_i * ROBOT_WIDTH / WHEEL_RADIUS;
 
-  pi_w_V.tick(err_w_rad_s);
+    //// Система управления скоростью мотора c ОС по вычисленной скорости (правым) ////
+    static PIController pi_Rw(Ts_s, Kp, Ki, SUPPLY_VOLTAGE);
 
-  const float u_l_V = pi_w_V.out;
+    const float err_wR = w_R0 - w_Rest;
+    pi_Rw.tick(err_wR);
 
-  //// Разомкнутое управление ДПТ (правым) ////
+    const float u_R = pi_Rw.out;
 
-  const float w_r_est = w_est_rad_s.out + gyro_z_rad_s * ROBOT_WIDTH_M / WHEEL_RADIUS_M;
+    ///////// ACT /////////
+    // Приведение управляющих воздействий в действие и логирование данных
+    motorTick(u_L, u_R);
 
-  static PIController pi_w_r_V(Ts_s, Kp, Ki, SUPPLY_VOLTAGE);
-
-  const float err_w_r_rad_s = w_r0 - w_r_est;
-  pi_w_r_V.tick(err_w_r_rad_s);
-
-  const float u_r_V = pi_w_r_V.out;
-
-  ///////// ACT /////////
-  // Приведение управляющих воздействий в действие и логирование данных
-  motorTick(u_l_V, u_r_V);
-
-  // Serial.print(dtime);
-  Serial.print(" ");
-  Serial.print(w_l0);
-  Serial.print(" ");
-  Serial.print(w_r0);
-  Serial.print(" ");
-  Serial.print(w_est_rad_s.out);
-  Serial.print(" ");
-  Serial.print(w_r_est);
-  Serial.print(" ");
-  Serial.print(u_l_V);
-  Serial.print(" ");
-  Serial.print(u_r_V);
-  // Serial.print(" ");
-  // Serial.print(gyro_z_raw_popugi);
-  // Serial.print(" ");
-  // Serial.print(gyro_z_rad_s);
-  // Serial.print(" ");
-  // Serial.print(gyro_z_angle_rad);
-  Serial.println();
+    Serial.print(dtime);
+    Serial.print(" ");
+    Serial.print(w_L0);
+    Serial.print(" ");
+    Serial.print(w_R0);
+    Serial.print(" ");
+    Serial.print(w_Lest.out);
+    Serial.print(" ");
+    Serial.print(w_Rest);
+    Serial.print(" ");
+    Serial.print(u_L);
+    Serial.print(" ");
+    Serial.print(u_R);
+    Serial.println();
 }
