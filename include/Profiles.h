@@ -1,0 +1,82 @@
+#pragma once
+
+#include <Arduino.h>
+
+enum MOVE
+{
+    S,
+    F,
+    R,
+    L
+};
+
+enum DIR
+{
+    RIGHT = -1,
+    LEFT = 1
+};
+
+bool STOP(float *v_f0, float *theta_i0)
+{
+    *v_f0 = 0;
+    *theta_i0 = 0;
+    return false;
+}
+
+bool FWD(float *v_f0, float *theta_i0, float theta)
+{
+    // Вычисление времени
+    static bool flag = false;
+    static float time0 = 0;
+    if (!flag)
+    {
+        time0 = millis() / 1000.0;
+        flag = true;
+    }
+    const float time = millis() / 1000.0 - time0;
+
+    // Математика
+    *v_f0 = 0.1;
+    *theta_i0 = -theta;
+
+    // Логика перехода
+    if (time >= 1.8)
+    {
+        flag = 0;
+        return true;
+    }
+    return false;
+}
+
+bool SS90E(float *v_f0, float *theta_i0, DIR dir)
+{
+    // Вычисление времени
+    static bool flag = false;
+    static float time0 = 0;
+    if (!flag)
+    {
+        time0 = millis() / 1000.0;
+        flag = true;
+    }
+    const float time = millis() / 1000.0 - time0;
+
+    // Математика
+    *v_f0 = 0.1;
+
+    if (time >= 0.225 && time < 1.285)
+    {
+        *theta_i0 = 1.48 * dir;
+    }
+    else
+    {
+        *theta_i0 = 0;
+    }
+
+    // Логика перехода
+    if (time >= 1.51)
+    {
+        flag = 0;
+        return true;
+    }
+    return false;
+}

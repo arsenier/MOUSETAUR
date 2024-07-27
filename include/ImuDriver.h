@@ -90,7 +90,8 @@ void mpuInit()
  */
 void mpuTick()
 {
-    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    // mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    gx = mpu.getRotationX();
     gyro_z_raw_popugi = gx;
 
     G_theta_i = gyro_z_raw_popugi * POPUGI_TO_RAD_S;
