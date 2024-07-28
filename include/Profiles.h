@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Parameters.h"
 #include <Arduino.h>
 
 enum MOVE
@@ -23,26 +24,27 @@ bool STOP(float *v_f0, float *theta_i0)
     return false;
 }
 
-bool FWD(float *v_f0, float *theta_i0, float theta)
+bool FWD(float *v_f0, float *theta_i0)
 {
     // Вычисление времени
-    static bool flag = false;
+    static bool is_in_progress = false;
     static float time0 = 0;
-    if (!flag)
+    if (!is_in_progress)
     {
         time0 = millis() / 1000.0;
-        flag = true;
+        is_in_progress = true;
     }
     const float time = millis() / 1000.0 - time0;
 
     // Математика
-    *v_f0 = 0.1;
-    *theta_i0 = -theta;
+    *v_f0 = FORW_SPEED;
+    *theta_i0 = 0;
 
     // Логика перехода
     if (time >= 1.8)
+    // ЗАМЕНИТЕ 1.8 НА ПЕРЕСЧЕТ ПО СКОРОСТИ И РАЗМЕРУ ЯЧЕЙКИ
     {
-        flag = 0;
+        is_in_progress = false;
         return true;
     }
     return false;

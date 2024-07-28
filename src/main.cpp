@@ -25,9 +25,10 @@ void loop()
     ///////// TIMER /////////
     // Задание постоянной частоты главного цикла прогааммы
     static uint32_t timer = micros();
-    while (micros() - timer < Ts_us)
-        ;
+    // 4500us
     const uint32_t dtime = micros() - timer;
+    while (micros() - timer < Ts_seq_us)
+        ;
     timer = micros();
 
     ///////// SENSE /////////
@@ -40,17 +41,10 @@ void loop()
 
     ///////// PLAN /////////
     // Расчет управляющих воздействий
+    float v_f0 = 0;     // [m/s]
+    float theta_i0 = 0; // [rad/s]
 
-    //// Вычислитель угла поворота робота ////
-    static Integrator theta(Ts_s);
-    theta.tick(theta_i);
-
-    //// Задатчик поступательной и угловой скоростей (профиля движения) ////
-
-    float v_f0 = 0.1; // [m/s]
-    float theta_i0;   // [rad/s]
-
-    const MOVE program[] = {L, L, R, F, R, R, F, F, R, S};
+    const MOVE program[] = {F, R, L, F, S};
     static size_t programCounter = 0;
 
     bool isComplete = false;
@@ -61,15 +55,14 @@ void loop()
         isComplete = STOP(&v_f0, &theta_i0);
         break;
     case F:
-        isComplete = FWD(&v_f0, &theta_i0, 0);
-        break;
-    case R:
-        isComplete = SS90E(&v_f0, &theta_i0, RIGHT);
+        isComplete = FWD(&v_f0, &theta_i0);
         break;
     case L:
         isComplete = SS90E(&v_f0, &theta_i0, LEFT);
         break;
-
+    case R:
+        isComplete = SS90E(&v_f0, &theta_i0, RIGHT);
+        break;
     default:
         break;
     }

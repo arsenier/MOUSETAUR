@@ -40,34 +40,39 @@ void stopTimer1()
 
 void typerInit()
 {
-    cli();
+    noInterrupts();
     initTimer1();
     setTimer1(Ts_typer_s);
-    sei();
+    interrupts();
 }
-
-volatile uint32_t time0 = 0;
 
 // Timer1 interrupt
 ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 {
+    static uint32_t time0 = 0;
     const uint32_t dtime = micros() - time0;
     time0 = micros();
 
     ///////// SENSE /////////
     // Считывание датчиков
     encoderTick(); // 16us
-    mpuTick();     // 1500us
+    mpuTick();     // 1800us
 
     noInterrupts();
-    const float phi_L = G_phi_L;       // [rad]
-    const float theta_i = G_theta_i;   // [rad/s]
+    //// Считывание каналов данных датчиков
+    const float phi_L = G_phi_L;     // [rad]
+    const float theta_i = G_theta_i; // [rad/s]
+    //// Считывание каналов поступательной и угловой скорости
     const float v_f0 = G_v_f0;         // [m/s]
     const float theta_i0 = G_theta_i0; // [rad/s]
     interrupts();
 
     ///////// PLAN /////////
     // Расчет управляющих воздействий
+
+    //// Вычислитель угла поворота робота ////
+    static Integrator theta(Ts_typer_s);
+    theta.tick(theta_i);
 
     //// Трансформатор поступательной скорости ////
     const float w_f0 = v_f0 / WHEEL_RADIUS; // [rad/s]
@@ -113,12 +118,7 @@ ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
     ///////// ACT /////////
     // Приведение управляющих воздействий в действие и логирование данных
     motorTick(u_L, u_R);
-    // 2250us
+    // 2230us
 
-    // Serial.print(dtime);
-    // Serial.print(" ");
-    // Serial.print(w_Lest.out);
-    // Serial.print(" ");
-    // Serial.print(w_Rest);
-    // Serial.println();
+    // Serial.println(dtime);
 }
