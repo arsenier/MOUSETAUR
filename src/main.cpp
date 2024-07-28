@@ -44,23 +44,23 @@ void loop()
     float v_f0 = 0;     // [m/s]
     float theta_i0 = 0; // [rad/s]
 
-    const MOVE program[] = {F, R, L, F, S};
+    const MOVE program[] = {MOVE::FWD, MOVE::SS90ER, MOVE::SS90EL, MOVE::FWD, MOVE::STOP};
     static size_t programCounter = 0;
 
     bool isComplete = false;
 
     switch (program[programCounter])
     {
-    case S:
+    case MOVE::STOP:
         isComplete = STOP(&v_f0, &theta_i0);
         break;
-    case F:
+    case MOVE::FWD:
         isComplete = FWD(&v_f0, &theta_i0);
         break;
-    case L:
+    case MOVE::SS90EL:
         isComplete = SS90E(&v_f0, &theta_i0, LEFT);
         break;
-    case R:
+    case MOVE::SS90ER:
         isComplete = SS90E(&v_f0, &theta_i0, RIGHT);
         break;
     default:

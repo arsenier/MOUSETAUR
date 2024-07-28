@@ -3,12 +3,12 @@
 #include "Parameters.h"
 #include <Arduino.h>
 
-enum MOVE
+enum class MOVE
 {
-    S,
-    F,
-    R,
-    L
+    STOP,
+    FWD,
+    SS90ER,
+    SS90EL
 };
 
 enum DIR
